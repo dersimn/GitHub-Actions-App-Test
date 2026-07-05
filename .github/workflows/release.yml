@@ -1,0 +1,50 @@
+name: Release
+
+# Part 2: When a commit lands on master, run semantic-release. Based on the
+# Conventional Commit messages since the last release it decides the next
+# version, creates the git tag, and publishes a GitHub Release. Creating that
+# release is what triggers the docker-publish workflow (Part 3).
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+# Prevent two releases from racing if commits land close together.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # create tags and releases
+  issues: write          # semantic-release comments on issues/PRs
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history and tags are required for semantic-release to work
+          # out the previous version.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes \
+            -p semantic-release@23 \
+            -p @semantic-release/commit-analyzer \
+            -p @semantic-release/release-notes-generator \
+            -p @semantic-release/github \
+            semantic-release

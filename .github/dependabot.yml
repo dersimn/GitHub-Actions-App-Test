@@ -1,0 +1,33 @@
+# Dependabot keeps dependencies fresh by opening pull requests automatically.
+#
+# The "docker" ecosystem watches every Dockerfile in the repo and bumps base
+# images such as `FROM alpine:3.12` to the newest available tag.
+#
+# The "github-actions" ecosystem keeps the action versions used in the
+# workflows below (checkout, setup-buildx, etc.) up to date too.
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+    commit-message:
+      # Produces "chore(deps): bump ...". Plain `chore` does NOT trigger a
+      # release by default, so .releaserc.json has a custom releaseRule mapping
+      # chore(deps) -> patch. The `deps` scope comes from `include: scope`.
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
