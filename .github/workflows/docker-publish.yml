@@ -7,6 +7,11 @@ name: Docker Publish
 #
 #   3.2.1  ->  latest, 3, 3.2, 3.2.1
 #
+# The rolling tags (latest, 3, 3.2) are only moved when the release being built
+# is actually the newest in that scope, so retrofitting an older version — e.g.
+# publishing 1.2.3 while 3.2.1 already exists — pushes only the exact `1.2.3`
+# tag and leaves `latest`, `3`, `3.2` untouched.
+#
 # A pre-release such as `v3.2.1-rc.1` is pushed with its full tag only and is
 # NOT tagged `latest`.
 
@@ -30,21 +35,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
+        # Need the full tag history so we can tell whether this release is the
+        # newest one before we let it claim rolling tags.
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Decide which rolling tags this version may claim
+        id: rolling
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Version being built, without the leading "v" (e.g. 3.2.1).
+          cur="${REF_NAME#v}"
+
+          # Pre-releases (v3.2.1-rc.1) never move latest/major/minor tags.
+          if [[ "$cur" == *-* ]]; then
+            printf 'is_latest=false\nis_major=false\nis_minor=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # All published, non-prerelease semver tags (includes the current one).
+          tags=$(git tag -l 'v*.*.*' | sed 's/^v//' | grep -v -- '-' || true)
+          IFS=. read -r maj min _ <<< "$cur"
+
+          highest()      { printf '%s\n' "$tags" | sort -V | tail -1; }
+          highest_major(){ printf '%s\n' "$tags" | awk -F. -v M="$maj" '$1==M' | sort -V | tail -1; }
+          highest_minor(){ printf '%s\n' "$tags" | awk -F. -v M="$maj" -v N="$min" '$1==M && $2==N' | sort -V | tail -1; }
+
+          # A rolling tag may point at this version only if this version is the
+          # newest in the relevant scope. Guards against retrofitting an older
+          # release (e.g. publishing 1.2.3 while 3.2.1 already exists).
+          [[ "$cur" == "$(highest)"       ]] && il=true || il=false
+          [[ "$cur" == "$(highest_major)" ]] && im=true || im=false
+          [[ "$cur" == "$(highest_minor)" ]] && in=true || in=false
+          printf 'is_latest=%s\nis_major=%s\nis_minor=%s\n' "$il" "$im" "$in" >> "$GITHUB_OUTPUT"
 
       - name: Docker metadata (tags + labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
-          # semver patterns produce 3.2.1, 3.2 and 3 from a v3.2.1 tag.
-          # `latest` is added automatically for non-prerelease semver tags.
+          # The exact version is always pushed. The rolling tags (latest, major,
+          # major.minor) are only pushed when this release is the newest in that
+          # scope, so retrofitting an older version can't clobber a newer one.
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.rolling.outputs.is_minor }}
+            type=semver,pattern={{major}},enable=${{ steps.rolling.outputs.is_major }}
+            type=raw,value=latest,enable=${{ steps.rolling.outputs.is_latest }}
           flavor: |
-            latest=auto
+            latest=false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
