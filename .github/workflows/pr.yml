@@ -63,7 +63,7 @@ jobs:
       # gate merges — e.g. only auto-merge patch/minor. Left permissive here.
       - name: Dependabot metadata
         id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
 
       - name: Merge the PR
         env:
