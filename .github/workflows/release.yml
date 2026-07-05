@@ -31,13 +31,12 @@ jobs:
       # the handoff automatic, generate a GitHub App token and use it in place
       # of GITHUB_TOKEN (search "APP TOKEN" below). See the README section
       # "Cross-workflow triggering" for setup. A fine-grained PAT works too.
-      #
-      # - name: Generate app token
-      #   id: app-token
-      #   uses: actions/create-github-app-token@v1
-      #   with:
-      #     app-id: ${{ vars.RELEASE_APP_ID }}
-      #     private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,7 +47,7 @@ jobs:
           persist-credentials: false
           # APP TOKEN: uncomment so the tag push is authored by the app (else
           # it stays github-actions[bot] and won't trigger docker-publish.yml).
-          # token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -57,10 +56,12 @@ jobs:
 
       - name: Run semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ---
           # APP TOKEN: replace the line above with this so the GitHub Release is
           # authored by the app and therefore triggers docker-publish.yml.
-          # GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # ---
         # commit-analyzer, release-notes-generator and github ship bundled with
         # semantic-release, so installing the one package is enough; .releaserc
         # selects which plugins run. Add -p only for non-bundled plugins.

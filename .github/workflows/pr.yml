@@ -52,13 +52,12 @@ jobs:
       # workflows — so release.yml won't run. To chain automatically, merge
       # with a GitHub App token instead (search "APP TOKEN" below). See the
       # README section "Cross-workflow triggering". A fine-grained PAT works too.
-      #
-      # - name: Generate app token
-      #   id: app-token
-      #   uses: actions/create-github-app-token@v1
-      #   with:
-      #     app-id: ${{ vars.RELEASE_APP_ID }}
-      #     private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       # Optional: expose update metadata (version bump type, etc.) so you can
       # gate merges — e.g. only auto-merge patch/minor. Left permissive here.
@@ -68,9 +67,11 @@ jobs:
 
       - name: Merge the PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ---
           # APP TOKEN: replace the line above with this so the merge commit is
           # authored by the app and therefore triggers release.yml.
-          # GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # ---
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr merge --merge "$PR_URL"
