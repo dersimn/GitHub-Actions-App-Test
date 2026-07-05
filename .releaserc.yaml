@@ -1,0 +1,15 @@
+branches:
+  - master
+  - main
+plugins:
+  - - "@semantic-release/commit-analyzer"
+    - releaseRules:
+        # Dependabot commits land as `chore(deps): ...`; map them to a patch
+        # release (plain `chore:` still triggers no release).
+        - type: chore
+          scope: deps
+          release: patch
+  - "@semantic-release/release-notes-generator"
+  - - "@semantic-release/github"
+    - successComment: false
+      failComment: false
